@@ -1,0 +1,10 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="../UserManager/UserManager.csproj" Id="29fd11a7-c612-466b-939b-da8ce06a74df" />
+  <Project Path="N2N_USER_SERVER.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+</Solution>
