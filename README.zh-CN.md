@@ -1,4 +1,4 @@
-# N2N User Server（N2N_TOOLS_Server）
+# N2N User Server（n2n-user-server）
 
 [![Language](https://img.shields.io/badge/Language-English-blue)](README.md) [![文档](https://img.shields.io/badge/文档-中文-red)](README.zh-CN.md)
 
