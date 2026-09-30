@@ -1,10 +1,20 @@
 ﻿using LiteDB;
 using N2N_USER_SERVER.API;
 using N2N_USER_SERVER.Bootstrap;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace N2N_USER_SERVER.Core
 {
+    //用户账号文档模型
+    public class User
+    {
+        [BsonId]
+        public int id { get; set; }
+        public string username { get; set; }
+        public string password_hash { get; set; }
+        public bool enabled { get; set; }
+    }
+
+    //用户N2N边缘配置文档模型
     public class UserData {
         [BsonId]
         public int user_id { get; set; }
@@ -17,32 +27,20 @@ namespace N2N_USER_SERVER.Core
         public int encrypt_algorithm { get; set; }
     }
 
-    public class User
-    {
-        [BsonId]
-        public int id { get; set; }
-        public string username { get; set; }
-        public string password_hash { get; set; }
-        public bool enabled { get; set; }
-    }
-
-
-    //负责提供db实例的封装 IDisposable-可释放
+    //提供LiteDB实例的封装，IDisposable-可释放
     public class DatabaseService : IDisposable
     {
-        //readonly-只读
         private readonly LiteDatabase _database;
 
-        //构建函数:初始化自动执行 
+        //构造函数：初始化并建立索引
         public DatabaseService()
         {
             _database = new LiteDatabase(Initialization.config.userdbpath);
-            //建立索引
             var users = _database.GetCollection<User>("users");
-            users.EnsureIndex(x => x.username,true);
+            users.EnsureIndex(x => x.username, true);
         }
 
-        //一个属性类型是 GetCollection() 的返回值
+        //users集合
         public ILiteCollection<User> Users
         {
             get
@@ -51,6 +49,7 @@ namespace N2N_USER_SERVER.Core
             }
         }
 
+        //n2n_configs集合
         public ILiteCollection<UserData> N2nConfigs
         {
             get
@@ -59,8 +58,8 @@ namespace N2N_USER_SERVER.Core
             }
         }
 
-        //释放(的)方法
-        public void Dispose() { 
+        public void Dispose()
+        {
             _database.Dispose();
         }
     }
@@ -68,71 +67,69 @@ namespace N2N_USER_SERVER.Core
     public static class DatabaseOper {
         #region API操作
 
-        public static DatabaseService lite = new DatabaseService();//数据库实例
-        public static bool LoginProcessing(string userid, string inputPassword, out UserData? userdata) {
-            Console.WriteLine("准备连接数据库");
+        //数据库实例
+        public static DatabaseService lite = new DatabaseService();
 
+        //登录处理：验证账号密码，成功时输出该用户的边缘配置
+        public static bool LoginProcessing(string userid, string inputPassword, out UserData? userdata) {
             //外部调用入口
-            int? useridhave = UserVerification(userid, inputPassword, lite.Users);
-            Console.WriteLine($"验证结果：{(useridhave != null)}");
-            if (useridhave == null) {
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"开始验证用户-{userid}");
+            int? userId = UserVerification(userid, inputPassword, lite.Users);
+            if (userId == null) {
+                Services.ErrorReporter.Report(Services.LogLevel.Warn, $"用户登录失败-{userid}");
                 userdata = null;
                 return false;
             }
-            userdata = GetUserConfig((int)useridhave, lite.N2nConfigs);
-            Console.WriteLine($"Verification-{userdata},isnull{userdata == null}");
-            return userdata != null;
+            userdata = GetUserConfig((int)userId, lite.N2nConfigs);
+            if (userdata == null) {
+                Services.ErrorReporter.Report(Services.LogLevel.Warn, $"用户登录失败-缺少边缘配置-{userid}");
+                return false;
+            }
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户登录成功-{userid}");
+            return true;
         }
 
-        //验证账户
-        private static int? UserVerification(string userid, string inputPassword, ILiteCollection<User> lite) {
-
+        //验证账户，成功返回用户id
+        private static int? UserVerification(string userid, string inputPassword, ILiteCollection<User> users) {
             try
             {
-                Console.WriteLine($"开始查询用户-{userid}");
+                User? user = users.FindOne(x => x.username == userid);
 
-                //找到其中 username == userid 的项 赋给 User
-                User? _user = lite.FindOne(x => x.username == userid);
+                if (user == null) return null;
+                if (!user.enabled) return null;
 
-                if (_user == null) return null;
-                if (!_user.enabled) return null;
-
-                if (BCrypt.Net.BCrypt.Verify(inputPassword, _user.password_hash))
+                if (BCrypt.Net.BCrypt.Verify(inputPassword, user.password_hash))
                 {
-                    return _user.id;
+                    return user.id;
                 }
                 else
                 {
                     return null;
                 }
             }
-
             catch (LiteException ex)
             {
-                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                Console.WriteLine($"准备返回登录失败{ex}");
+                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"数据库错误-{ex.Message}");
                 return null;
             }
             catch (Exception ex)
             {
-                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                Console.WriteLine($"准备返回登录失败{ex}");
+                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"数据库-未知错误-{ex.Message}");
                 return null;
             }
-
-
         }
 
-
-        private static UserData? GetUserConfig(int userid, ILiteCollection<UserData> litedb)
+        //按用户id查询边缘配置
+        private static UserData? GetUserConfig(int userid, ILiteCollection<UserData> configs)
         {
-            return litedb.FindById(userid);
+            return configs.FindById(userid);
         }
 
         #endregion
 
         #region 后端管理
 
+        //写操作的结果
         public class WriteResults
         {
             //操作类型
@@ -146,10 +143,11 @@ namespace N2N_USER_SERVER.Core
         }
 
         //插入用户
-        public static WriteResults AddUser(string username,string password,bool enabled) {
+        public static WriteResults AddUser(string username, string password, bool enabled) {
 
             if (InsertData(lite.Users))
             {
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户创建成功-{username}");
                 return new WriteResults()
                 {
                     type = "AddUser",
@@ -169,7 +167,7 @@ namespace N2N_USER_SERVER.Core
                 };
             }
 
-            bool InsertData(ILiteCollection<User> lite) {
+            bool InsertData(ILiteCollection<User> users) {
                 var user = new User()
                 {
                     username = username,
@@ -178,18 +176,16 @@ namespace N2N_USER_SERVER.Core
                 };
                 try
                 {
-                    lite.Insert(user);
+                    users.Insert(user);
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
                     return false;
                 }
 
@@ -197,8 +193,9 @@ namespace N2N_USER_SERVER.Core
             }
         }
 
+        //插入用户边缘配置
         public static WriteResults AddUserData(UserData data) {
- 
+
             if (!isUser(data.user_id, lite.Users))
             {
                 return new WriteResults()
@@ -212,6 +209,7 @@ namespace N2N_USER_SERVER.Core
 
             if (InsertData(lite.N2nConfigs))
             {
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户边缘配置创建成功-user_id{data.user_id}");
                 return new WriteResults()
                 {
                     type = "AddUserData",
@@ -231,45 +229,40 @@ namespace N2N_USER_SERVER.Core
                 };
             }
 
-            bool InsertData(ILiteCollection<UserData> lite)
+            bool InsertData(ILiteCollection<UserData> configs)
             {
                 try
                 {
-                    lite.Insert(data);
+                    configs.Insert(data);
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户配置失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户配置失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
             }
 
-
-            bool isUser(int userid, ILiteCollection<User> litedb)
+            bool isUser(int userid, ILiteCollection<User> users)
             {
                 try
                 {
-                    var User = litedb.FindById(userid);
-                    if (User == null) return false;
+                    var user = users.FindById(userid);
+                    if (user == null) return false;
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
@@ -277,16 +270,15 @@ namespace N2N_USER_SERVER.Core
 
         }
 
-        
-
-        public static WriteResults ReviseUser(User data) //修改用户数据
+        //修改用户数据
+        public static WriteResults ReviseUser(User data)
         {
             //先判断用户是否存在
             if (!isUser(data.id))
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "ReviseUser",
                     success = false,
                     recode = 500,
                     hint = "NOTUSER"
@@ -294,9 +286,10 @@ namespace N2N_USER_SERVER.Core
             }
             if (ReviseData(lite.Users))
             {
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户修改成功-id{data.id}");
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "ReviseUser",
                     success = true,
                     recode = 200,
                     hint = "Operation Successful"
@@ -306,86 +299,71 @@ namespace N2N_USER_SERVER.Core
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "ReviseUser",
                     success = false,
                     recode = 500,
                     hint = "Database Error"
                 };
             }
 
-
-
-            bool ReviseData(ILiteCollection<User> litedb)
+            bool ReviseData(ILiteCollection<User> users)
             {
                 try
                 {
-                    if(data.password_hash == "null")
+                    var user = users.FindById(data.id);
+                    user.username = data.username;
+                    //约定密码为"null"时表示不修改
+                    if (data.password_hash != "null")
                     {
-                        var user = litedb.FindById(data.id);
-                        user.username = data.username;
-                        user.enabled = data.enabled;
-
-                        litedb.Update(user);
-                    }
-                    else
-                    {
-                        var user = litedb.FindById(data.id);
-                        user.username = data.username;
                         user.password_hash = data.password_hash;
-                        user.enabled = data.enabled;
-
-                        litedb.Update(user);
                     }
-                    
+                    user.enabled = data.enabled;
+
+                    users.Update(user);
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"修改用户失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"修改用户失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
-
             }
 
             bool isUser(int userid)
             {
                 try
                 {
-                    var User = lite.Users.FindById(userid);
-                    if (User == null) return false;
+                    var user = lite.Users.FindById(userid);
+                    if (user == null) return false;
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
             }
         }
 
-        public static WriteResults ReviseUserConfig(UserData data)//修改用户配置文件
+        //修改用户边缘配置
+        public static WriteResults ReviseUserConfig(UserData data)
         {
-
             //先判断用户是否存在
             if (!isUser(data.user_id))
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "ReviseUserConfig",
                     success = false,
                     recode = 500,
                     hint = "NOTUSER"
@@ -393,9 +371,10 @@ namespace N2N_USER_SERVER.Core
             }
             if (ReviseConfig(lite.N2nConfigs))
             {
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户边缘配置修改成功-user_id{data.user_id}");
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "ReviseUserConfig",
                     success = true,
                     recode = 200,
                     hint = "Operation Successful"
@@ -405,19 +384,18 @@ namespace N2N_USER_SERVER.Core
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "ReviseUserConfig",
                     success = false,
                     recode = 500,
                     hint = "Database Error"
                 };
             }
 
-
-            bool ReviseConfig(ILiteCollection<UserData> litedb)
+            bool ReviseConfig(ILiteCollection<UserData> configs)
             {
                 try
                 {
-                    var config = litedb.FindById(data.user_id);
+                    var config = configs.FindById(data.user_id);
                     config.supernode_ip = data.supernode_ip;
                     config.supernode_port = data.supernode_port;
                     config.community_name = data.community_name;
@@ -426,18 +404,16 @@ namespace N2N_USER_SERVER.Core
                     config.community_key = data.community_key;
                     config.encrypt_algorithm = data.encrypt_algorithm;
 
-                    litedb.Update(config);
+                    configs.Update(config);
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"修改用户配置失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"修改用户配置失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
@@ -447,25 +423,24 @@ namespace N2N_USER_SERVER.Core
             {
                 try
                 {
-                    var User = lite.N2nConfigs.FindById(userid);
-                    if (User == null) return false;
+                    var config = lite.N2nConfigs.FindById(userid);
+                    if (config == null) return false;
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户配置失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户配置失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
             }
         }
 
+        //删除用户及其边缘配置
         public static WriteResults DeleteUser(int userid)
         {
             //先判断用户是否存在
@@ -473,29 +448,31 @@ namespace N2N_USER_SERVER.Core
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "DeleteUser",
                     success = false,
                     recode = 500,
                     hint = "NOTUSER"
                 };
             }
-            bool User = Delete(lite.Users); bool Config = DeleteConfig(lite.N2nConfigs);
+            bool userDeleted = Delete(lite.Users);
+            bool configDeleted = DeleteConfig(lite.N2nConfigs);
 
-            if (User && Config)
+            if (userDeleted && configDeleted)
             {
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户删除成功-id{userid}");
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "DeleteUser",
                     success = true,
                     recode = 200,
                     hint = "Operation Successful"
                 };
             }
-            else if(!User)
+            else if (!userDeleted)
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "DeleteUser",
                     success = false,
                     recode = 500,
                     hint = "User deletion failed"
@@ -505,52 +482,46 @@ namespace N2N_USER_SERVER.Core
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "DeleteUser",
                     success = false,
                     recode = 500,
                     hint = "UserConfig deletion failed"
                 };
             }
 
-
-            bool Delete(ILiteCollection<User> litedb)
+            bool Delete(ILiteCollection<User> users)
             {
                 try
                 {
-                    litedb.Delete(userid);
+                    users.Delete(userid);
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"删除用户失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"删除用户失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
-
             }
 
-            bool DeleteConfig(ILiteCollection<UserData> litedb)
+            bool DeleteConfig(ILiteCollection<UserData> configs)
             {
                 try
                 {
-                    litedb.Delete(userid);
+                    configs.Delete(userid);
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"删除用户配置失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"删除用户配置失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
@@ -560,33 +531,32 @@ namespace N2N_USER_SERVER.Core
             {
                 try
                 {
-                    var User = lite.Users.FindById(userid);
-                    if (User == null) return false;
+                    var user = lite.Users.FindById(userid);
+                    if (user == null) return false;
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
             }
         }
 
+        //删除用户边缘配置
         public static WriteResults Delete_UserData(int id)
         {
-            //先判断用户是否存在
+            //先判断配置是否存在
             if (!isUser(id))
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "DeleteUserData",
                     success = false,
                     recode = 500,
                     hint = "Database Error"
@@ -594,9 +564,10 @@ namespace N2N_USER_SERVER.Core
             }
             if (Delete(lite.N2nConfigs))
             {
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户边缘配置删除成功-id{id}");
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "DeleteUserData",
                     success = true,
                     recode = 200,
                     hint = "Operation Successful"
@@ -606,101 +577,88 @@ namespace N2N_USER_SERVER.Core
             {
                 return new WriteResults()
                 {
-                    type = "AddUserData",
+                    type = "DeleteUserData",
                     success = false,
                     recode = 500,
                     hint = "Database Error"
                 };
             }
 
-            bool Delete(ILiteCollection<UserData> litedb)
+            bool Delete(ILiteCollection<UserData> configs)
             {
                 try
                 {
-                    litedb.Delete(id);
+                    configs.Delete(id);
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"删除用户配置失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"删除用户配置失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
-
             }
 
             bool isUser(int userid)
             {
                 try
                 {
-                    var User = lite.N2nConfigs.FindById(userid);
-                    if (User == null) return false;
+                    var config = lite.N2nConfigs.FindById(userid);
+                    if (config == null) return false;
                 }
                 catch (LiteException ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户配置失败-{ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                    Console.WriteLine($"插入用户数据失败{ex}");
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户配置失败-未知错误-{ex.Message}");
                     return false;
                 }
                 return true;
             }
         }
 
-        //获取所有用户数据
+        //获取所有用户
         public static List<User> GetUserDataAll() {
             try
             {
-                var litedb = lite.Users;
-                var Users = litedb.FindAll().ToList();
-                return Users;
+                return lite.Users.FindAll().ToList();
             }
             catch (LiteException ex)
             {
-                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                Console.WriteLine($"插入用户数据失败{ex}");
+                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户列表失败-{ex.Message}");
                 return new List<User>() { };
             }
             catch (Exception ex)
             {
-                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                Console.WriteLine($"插入用户数据失败{ex}");
+                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户列表失败-未知错误-{ex.Message}");
                 return new List<User>() { };
             }
         }
-        //获取所有用户配置
+
+        //获取所有用户边缘配置
         public static List<UserData> GetUserConfigAll()
         {
             try
             {
-                var litedb = lite.N2nConfigs;
-                var UsersConfig = litedb.FindAll().ToList();
-                return UsersConfig;
+                return lite.N2nConfigs.FindAll().ToList();
             }
             catch (LiteException ex)
             {
-                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, "数据库错误");
-                Console.WriteLine($"插入用户数据失败{ex}");
+                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户配置列表失败-{ex.Message}");
                 return new List<UserData>() { };
             }
             catch (Exception ex)
             {
-                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, "数据库-未知错误");
-                Console.WriteLine($"插入用户数据失败{ex}");
+                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户配置列表失败-未知错误-{ex.Message}");
                 return new List<UserData>() { };
             }
-
         }
         #endregion
     }

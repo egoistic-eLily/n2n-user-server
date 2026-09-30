@@ -1,0 +1,3 @@
+/* Login-only motion. */
+.login-brand { animation: content-arrive 300ms both; }
+.login-card { animation-delay: 70ms; }

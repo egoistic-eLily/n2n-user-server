@@ -1,4 +1,48 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio cache/options
 .vs/
-bin/
-obj/
+.idea/
+*.suo
 *.user
+*.userosscache
+*.sln.docstates
+*.pubxml.user
+
+# Publish output
+[Pp]ublish/
+publish/
+*.pubxml
+!Properties/PublishProfiles/*.pubxml
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+
+# Runtime artifacts (created at first start)
+Config/
+Cert/
+*.db
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+TestResult.xml
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

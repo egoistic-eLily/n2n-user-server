@@ -1,0 +1,45 @@
+# Auto detect text files and normalize line endings
+* text=auto
+
+# Source code
+*.cs        text diff=csharp
+*.csproj    text
+*.slnx      text
+*.json      text
+*.config    text
+*.pubxml    text
+*.props     text
+*.targets   text
+
+# Web front-end
+*.html      text diff=html
+*.css       text
+*.js        text
+
+# Docs
+*.md        text
+*.txt       text
+
+# Config
+.gitattributes text
+.gitignore     text
+
+# Windows scripts
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binaries
+*.dll       binary
+*.exe       binary
+*.pdb       binary
+*.pfx       binary
+*.db        binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary

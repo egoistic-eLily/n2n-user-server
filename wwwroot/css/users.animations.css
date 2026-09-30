@@ -1,0 +1,3 @@
+/* User management-only motion. */
+.toolbar { animation: content-arrive 300ms 40ms both; }
+.pagination { animation: content-arrive 300ms 100ms both; }

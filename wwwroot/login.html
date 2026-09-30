@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="css/common.animations.css">
+    <link rel="stylesheet" href="css/login.animations.css">
+</head>
+<body>
+    <main class="login-shell">
+        <div class="login-brand"><h1>N2N User Server</h1><p>管理控制台</p></div>
+        <section class="login-card" aria-labelledby="LoginTitle">
+            <h2 id="LoginTitle">管理员登录</h2>
+            <form id="LoginForm" class="login-form">
+                <label for="username">用户名<input id="username" name="username" type="text" autocomplete="username" required></label>
+                <label for="password">密码<input id="password" name="password" type="password" autocomplete="current-password" required></label>
+                <button class="primary-button" id="LoginButton" type="submit">登录</button>
+            </form>
+        </section>
+    </main>
+    <dialog id="ErrorDialog" class="app-dialog"><div class="dialog-content"><h2>登录失败</h2><p>错误代码：<span id="ErrorCode"></span></p><p>错误信息：<span id="ErrorHint"></span></p></div><div class="dialog-footer"><button class="primary-button" data-dialog-close="ErrorDialog" type="button">确定</button></div></dialog>
+    <dialog id="SuccessDialog" class="app-dialog"><div class="dialog-content"><h2>登录成功</h2><p id="SuccessHint">即将进入管理控制台。</p></div><div class="dialog-footer"><button class="primary-button" data-dialog-close="SuccessDialog" type="button">确定</button></div></dialog>
+    <script src="js/common.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>

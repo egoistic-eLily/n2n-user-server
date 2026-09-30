@@ -1,4 +1,5 @@
 ﻿ using Microsoft.AspNetCore.Server.Kestrel.Core;
+ using Serilog;
 
 namespace N2N_USER_SERVER.Bootstrap
 {
@@ -7,7 +8,14 @@ namespace N2N_USER_SERVER.Bootstrap
         public static void Setup() {
             var app = CreateApp();
             ConfigureRoute(app);
-            app.Run();
+            try {
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"路由注册完成-HTTPS监听端口{Initialization.config.port}");
+                app.Run();
+            }
+            finally {
+                //退出前刷新日志缓冲
+                Log.CloseAndFlush();
+            }
         }
         private static WebApplication CreateApp() {
             //获得一个WebApplicationBuilder实例

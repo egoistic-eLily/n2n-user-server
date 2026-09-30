@@ -12,7 +12,7 @@ namespace N2N_USER_SERVER.API
 
         public string password { get; set; }
     }
-    public class Request //游览器发送的请求结构体
+    public class Request //浏览器发送的请求结构体
     {
         public string RequestType { get; set; }
         public string token { get; set; }
@@ -62,7 +62,6 @@ namespace N2N_USER_SERVER.API
     }
     public static class LoginApi {
         public static async Task<IResult> Login(HttpContext context) {
-            Console.WriteLine("进入 Login");
             LoginRequest? request =
             await context.Request.ReadFromJsonAsync<LoginRequest>();
             if (request == null) {
@@ -71,18 +70,16 @@ namespace N2N_USER_SERVER.API
             }
             string userid = request.userid;
             string password = request.password;
+            Services.ErrorReporter.Report(Services.LogLevel.Info, "接口调用-/login");
 
-            Console.WriteLine($"username-{request.userid}password- {password}");
             Core.UserData userdata = new();
-            
+
             if (!Core.DatabaseOper.LoginProcessing(userid, password, out userdata)) {
-                Console.WriteLine("登录失败");
                 return Results.Json(new
                 {
                     success = false,
                 }, statusCode: 401);
             }
-            Console.WriteLine("登录成功");
             return Results.Json(
             new
             {
@@ -100,12 +97,12 @@ namespace N2N_USER_SERVER.API
         }
         public static async Task<IResult> Admin_login_Html(HttpContext context)
         {
+            Services.ErrorReporter.Report(Services.LogLevel.Info, "页面请求-/admin_login");
             string html = await File.ReadAllTextAsync(GetFilePath("login.html"));
             return Results.Content(html, "text/html");
         }
         public static async Task<IResult> Admin_Login(HttpContext context)
         {
-            Console.WriteLine("进入 Admin_Login");
             LoginRequest? request = await context.Request.ReadFromJsonAsync<LoginRequest>();
             if (request == null)
             {
@@ -115,12 +112,10 @@ namespace N2N_USER_SERVER.API
 
             string userid = request.userid;
             string password = request.password;
-
-            Console.WriteLine($"username-{request.userid}password- {password}");
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/login-管理员{userid}");
 
             if (userid != Initialization.config.admin_username || password != Initialization.config.admin_password)
             {
-                Console.WriteLine("登录失败");
                 return Results.Json(new ReturnStructure()
                 {
                     success = false,
@@ -128,19 +123,13 @@ namespace N2N_USER_SERVER.API
                 },
                 statusCode: 401);
             }
-            Console.WriteLine("登录成功");
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"管理员登录成功-{userid}");
             string token = Core.Tokens.ObtainToken(Core.TokenType.Admin,10);
-            var re = Results.Json(new ReturnStructure()
+            return Results.Json(new ReturnStructure()
             {
                 success = true,
                 token = token
-            },statusCode: 200);
-
-            Console.WriteLine(re.ToString());
-
-            return re;
-
-
+            }, statusCode: 200);
 
         }
         public static async Task<IResult> Admin_Index(HttpContext context) {
@@ -162,6 +151,7 @@ namespace N2N_USER_SERVER.API
                 return Results.StatusCode(403);
             }
 
+            Services.ErrorReporter.Report(Services.LogLevel.Info, "页面请求-/admin");
             string html = await File.ReadAllTextAsync(GetFilePath("admin.html"));
             return Results.Content(html, "text/html");
         }
@@ -185,6 +175,7 @@ namespace N2N_USER_SERVER.API
                 return Results.StatusCode(403);
             }
 
+            Services.ErrorReporter.Report(Services.LogLevel.Info, "页面请求-/users");
             string html = await File.ReadAllTextAsync(GetFilePath("users.html"));
             return Results.Content(html, "text/html");
         }
@@ -209,6 +200,7 @@ namespace N2N_USER_SERVER.API
                 return Results.StatusCode(403);
             }
 
+            Services.ErrorReporter.Report(Services.LogLevel.Info, "页面请求-/configs");
             string html = await File.ReadAllTextAsync(GetFilePath("configs.html"));
             return Results.Content(html, "text/html");
         }
@@ -216,9 +208,9 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> Re_User_Data(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             Request? request = await context.Request.ReadFromJsonAsync<Request>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/getuserdata");
 
             var RE = TokenVerify(request);
 
@@ -241,9 +233,9 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> Re_User_Config(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             Request? request = await context.Request.ReadFromJsonAsync<Request>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/getusersconfig");
 
             var RE = TokenVerify(request);
 
@@ -251,7 +243,6 @@ namespace N2N_USER_SERVER.API
 
             //查询
             var UsersConfigList = Core.DatabaseOper.GetUserConfigAll();
-
 
             var redata = new Re_UserConfig()
             {
@@ -267,9 +258,9 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> Create_User(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             CreateUserRequest? request = await context.Request.ReadFromJsonAsync<CreateUserRequest>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/create_user-新用户{request?.username}");
             
             var RE = TokenVerify(request);
 
@@ -315,9 +306,9 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> Create_UserConfig(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             CreateUserConfigRequest? request = await context.Request.ReadFromJsonAsync<CreateUserConfigRequest>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/create_config");
 
             var RE = TokenVerify(request);
 
@@ -360,16 +351,15 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> Revise_User(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             UserRequest? request = await context.Request.ReadFromJsonAsync<UserRequest>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/revise_user-id{request?.id}");
 
             var RE = TokenVerify(request);
 
             if (RE != null) return RE;
 
             //修改
-
 
             string password = "";
             //"null"表示不需要更改密码
@@ -416,9 +406,9 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> Revise_UserConfig(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             CreateUserConfigRequest? request = await context.Request.ReadFromJsonAsync<CreateUserConfigRequest>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/revise_config");
 
             var RE = TokenVerify(request);
 
@@ -460,9 +450,9 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> Delete_User(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             UserRequest? request = await context.Request.ReadFromJsonAsync<UserRequest>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/delete_user-id{request?.id}");
 
             var RE = TokenVerify(request);
 
@@ -496,9 +486,9 @@ namespace N2N_USER_SERVER.API
         public static async Task<IResult> LogOut(HttpContext context)
         {
             //先校验token
-            Console.WriteLine("进入 Re_User_Data");
 
             Request? request = await context.Request.ReadFromJsonAsync<Request>();
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/logout");
 
             var RE = TokenVerify(request);
 
@@ -526,7 +516,6 @@ namespace N2N_USER_SERVER.API
                 return Results.BadRequest("请求数据错误");
             }
             //先校验token
-            Console.WriteLine("开始验证Token");
 
             string? token = request.token;
 
@@ -534,7 +523,6 @@ namespace N2N_USER_SERVER.API
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                Console.WriteLine("请求失败");
                 return Results.Json(new Re_UserData()
                 {
                     success = false,
@@ -577,7 +565,6 @@ namespace N2N_USER_SERVER.API
                 return Results.BadRequest("请求数据错误");
             }
             //先校验token
-            Console.WriteLine("开始验证Token");
 
             string? token = request.token;
 
@@ -585,7 +572,6 @@ namespace N2N_USER_SERVER.API
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                Console.WriteLine("请求失败");
                 return Results.Json(new Re_UserData()
                 {
                     success = false,
@@ -628,7 +614,6 @@ namespace N2N_USER_SERVER.API
                 return Results.BadRequest("请求数据错误");
             }
             //先校验token
-            Console.WriteLine("开始验证Token");
 
             string? token = request.token;
 
@@ -636,7 +621,6 @@ namespace N2N_USER_SERVER.API
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                Console.WriteLine("请求失败");
                 return Results.Json(new Re_UserData()
                 {
                     success = false,
@@ -679,7 +663,6 @@ namespace N2N_USER_SERVER.API
                 return Results.BadRequest("请求数据错误");
             }
             //先校验token
-            Console.WriteLine("开始验证Token");
 
             string? token = request.token;
 
@@ -687,7 +670,6 @@ namespace N2N_USER_SERVER.API
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                Console.WriteLine("请求失败");
                 return Results.Json(new Re_UserData()
                 {
                     success = false,
@@ -727,7 +709,6 @@ namespace N2N_USER_SERVER.API
         {
             string FilePath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
             string infile = Path.Combine(FilePath, filename);
-            Console.WriteLine($"Path = {infile}");
             if (!File.Exists(infile)) return null;
             return infile;
         }
@@ -735,6 +716,5 @@ namespace N2N_USER_SERVER.API
 
     }
     #endregion
-
 
 }
