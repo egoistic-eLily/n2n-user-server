@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Serilog;
 
 namespace N2N_USER_SERVER.Bootstrap
 {
@@ -9,9 +10,20 @@ namespace N2N_USER_SERVER.Bootstrap
         public static Config? config { get; private set; }
 
         public static void Init() {
+            InitLogger();
             GetConfig();//获取配置
             InitCert();
             initDB();
+        }
+
+        //初始化Serilog：控制台 + Logs/目录下按天滚动的日志文件
+        private static void InitLogger() {
+            string logdir = Path.Combine(AppContext.BaseDirectory, "Logs");
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .WriteTo.Console()
+                .WriteTo.File(Path.Combine(logdir, "server-.log"), rollingInterval: RollingInterval.Day)
+                .CreateLogger();
         }
         
         //配置证书的路径
@@ -20,13 +32,15 @@ namespace N2N_USER_SERVER.Bootstrap
             if (config?.certmode != CertMode.Default) {
                 if (!File.Exists(config?.pfxpath)) {
                     Services.ErrorReporter.Report(Services.ExceptionType.NoFile,Services.LogLevel.Fatal, "证书缺失");
+                    return;
                 }
+                Services.ErrorReporter.Report(Services.LogLevel.Info, $"证书加载完成-{config.pfxpath}");
                 return;
             }
             string? pfxpath;
             GetCertPath(out pfxpath);
             config.pfxpath = pfxpath;
-            return;
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"证书加载完成-{pfxpath}");
         }
 
         private static void initDB()
@@ -40,7 +54,7 @@ namespace N2N_USER_SERVER.Bootstrap
             }
             string dbpath = GetDbPath();
             config.userdbpath = dbpath;
-            return;
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"数据库路径-{dbpath}");
         }
 
         //获取配置文件并反序列化
@@ -61,16 +75,16 @@ namespace N2N_USER_SERVER.Bootstrap
                 }
                 config = _config;
             }
-            catch (JsonException ex)
+            catch (JsonException)
             {
                 Services.ErrorReporter.Report(Services.ExceptionType.JsonException,Services.LogLevel.Fatal, "Json序列化错误");
             }
-            catch (Exception ex) {
+            catch (Exception)
+            {
                 Services.ErrorReporter.Report(Services.ExceptionType.Unknown,Services.LogLevel.Fatal, "Json序列化-未知错误");
             }
+            Services.ErrorReporter.Report(Services.LogLevel.Info, "配置文件加载完成");
 
-
-            return;
 
             //获取配置文件路径
             static string GetConfigPath() {
@@ -101,7 +115,6 @@ namespace N2N_USER_SERVER.Bootstrap
                 options.Converters.Add(new JsonStringEnumConverter());
                 string jsonString = JsonSerializer.Serialize(config,options);
                 File.WriteAllText(jsonpath,jsonString);
-                return;
             }
         }
 
@@ -116,7 +129,6 @@ namespace N2N_USER_SERVER.Bootstrap
                 Services.ErrorReporter.Report(Services.ExceptionType.NoFile,Services.LogLevel.Fatal, "证书缺失");
                 return;
             }
-            return;
         }
 
         //获取litedb文件目录

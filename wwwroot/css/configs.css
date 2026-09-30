@@ -1,0 +1,5 @@
+@import url("users.css");
+
+.toolbar input { width: min(420px, 100%); }
+
+@media (max-width: 760px) { .toolbar input { width: 100%; } }

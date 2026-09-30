@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>用户配置管理</title>
+
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/configs.css">
+    <link rel="stylesheet" href="css/common.animations.css">
+    <link rel="stylesheet" href="css/configs.animations.css">
+</head>
+
+<body>
+
+    <aside class="app-sidebar">
+        <a class="brand" href="/admin" data-admin-nav>N2N User Server<small>管理控制台</small></a>
+        <nav class="app-nav" aria-label="主导航">
+            <a href="/admin" data-admin-nav>控制台主页</a>
+            <a href="/users" data-admin-nav>用户管理</a>
+            <a href="/configs" data-admin-nav aria-current="page">用户配置管理</a>
+        </nav>
+    </aside>
+
+    <header class="app-header">
+        <div><h2 class="app-header__title">用户配置管理</h2><span class="app-header__meta">N2N User Server 管理控制台</span></div>
+        <div class="admin-area">
+            <button id="AdminButton" class="admin-button" type="button" aria-expanded="false">Admin</button>
+            <div id="AdminMenu" class="admin-menu"><button id="LogoutButton" type="button">退出登录</button></div>
+        </div>
+    </header>
+
+
+    <main class="app-main">
+
+        <section class="page-container">
+
+            <div class="page-header">
+
+                <div>
+                    <h1>用户配置管理</h1>
+                    <p>管理 N2N 用户连接配置</p>
+                </div>
+
+                <button
+                    id="CreateConfigButton"
+                    class="primary-button"
+                    type="button"
+                >
+                    创建配置
+                </button>
+
+            </div>
+
+
+            <div class="toolbar">
+
+                <input
+                    id="SearchInput"
+                    type="text"
+                    placeholder="搜索用户 ID、社区名或设备名"
+                >
+
+                <select id="PageSize">
+
+                    <option value="10">10 条 / 页</option>
+                    <option value="20">20 条 / 页</option>
+                    <option value="50">50 条 / 页</option>
+                    <option value="100">100 条 / 页</option>
+
+                </select>
+
+            </div>
+
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>用户 ID</th>
+                            <th>Supernode</th>
+                            <th>Community</th>
+                            <th>Device</th>
+                            <th>加密算法</th>
+                            <th>操作</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="ConfigTableBody">
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            <div
+                id="Pagination"
+                class="pagination"
+            >
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <footer class="app-footer">
+        N2N User Server
+    </footer>
+
+
+    <!-- 创建配置窗口 -->
+
+    <dialog id="CreateConfigDialog" class="app-dialog">
+
+        <form id="CreateConfigForm">
+
+            <div class="dialog-header">
+
+                <h2>创建用户配置</h2>
+
+            </div>
+
+
+            <div class="dialog-content">
+
+                <div class="form-item">
+
+                    <label for="CreateUserId">
+                        用户 ID
+                    </label>
+
+                    <input
+                        id="CreateUserId"
+                        type="number"
+                        min="1"
+                        step="1"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="CreateSupernodeIp">
+                        Supernode IP
+                    </label>
+
+                    <input
+                        id="CreateSupernodeIp"
+                        type="text"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="CreateSupernodePort">
+                        Supernode 端口
+                    </label>
+
+                    <input
+                        id="CreateSupernodePort"
+                        type="number"
+                        min="1"
+                        max="65535"
+                        step="1"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="CreateCommunityName">
+                        Community
+                    </label>
+
+                    <input
+                        id="CreateCommunityName"
+                        type="text"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="CreateDeviceName">
+                        Device
+                    </label>
+
+                    <input
+                        id="CreateDeviceName"
+                        type="text"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="CreatePassword">
+                        Password
+                    </label>
+
+                    <input
+                        id="CreatePassword"
+                        type="password"
+                        autocomplete="new-password"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="CreateCommunityKey">
+                        Community Key
+                    </label>
+
+                    <input
+                        id="CreateCommunityKey"
+                        type="password"
+                        autocomplete="new-password"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="CreateEncryptAlgorithm">
+                        加密算法
+                    </label>
+
+                    <input
+                        id="CreateEncryptAlgorithm"
+                        type="number"
+                        min="0"
+                        step="1"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="dialog-footer">
+
+                <button
+                    id="CancelCreateConfigButton"
+                    type="button"
+                    class="secondary-button"
+                >
+                    取消
+                </button>
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                >
+                    创建
+                </button>
+
+            </div>
+
+        </form>
+
+    </dialog>
+
+
+    <!-- 修改配置窗口 -->
+
+    <dialog id="ReviseConfigDialog" class="app-dialog">
+
+        <form id="ReviseConfigForm">
+
+            <div class="dialog-header">
+
+                <h2>修改用户配置</h2>
+
+            </div>
+
+
+            <div class="dialog-content">
+
+                <div class="form-item">
+
+                    <label for="ReviseUserId">
+                        用户 ID
+                    </label>
+
+                    <input
+                        id="ReviseUserId"
+                        type="number"
+                        min="1"
+                        step="1"
+                        readonly
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="ReviseSupernodeIp">
+                        Supernode IP
+                    </label>
+
+                    <input
+                        id="ReviseSupernodeIp"
+                        type="text"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="ReviseSupernodePort">
+                        Supernode 端口
+                    </label>
+
+                    <input
+                        id="ReviseSupernodePort"
+                        type="number"
+                        min="1"
+                        max="65535"
+                        step="1"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="ReviseCommunityName">
+                        Community
+                    </label>
+
+                    <input
+                        id="ReviseCommunityName"
+                        type="text"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="ReviseDeviceName">
+                        Device
+                    </label>
+
+                    <input
+                        id="ReviseDeviceName"
+                        type="text"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="RevisePassword">
+                        Password
+                    </label>
+
+                    <input
+                        id="RevisePassword"
+                        type="password"
+                        autocomplete="new-password"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="ReviseCommunityKey">
+                        Community Key
+                    </label>
+
+                    <input
+                        id="ReviseCommunityKey"
+                        type="password"
+                        autocomplete="new-password"
+                    >
+
+                </div>
+
+
+                <div class="form-item">
+
+                    <label for="ReviseEncryptAlgorithm">
+                        加密算法
+                    </label>
+
+                    <input
+                        id="ReviseEncryptAlgorithm"
+                        type="number"
+                        min="0"
+                        step="1"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="dialog-footer">
+
+                <button
+                    id="CancelReviseConfigButton"
+                    type="button"
+                    class="secondary-button"
+                >
+                    取消
+                </button>
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                >
+                    保存修改
+                </button>
+
+            </div>
+
+        </form>
+
+    </dialog>
+
+
+    <!-- 错误窗口 -->
+
+    <dialog id="ErrorDialog" class="app-dialog">
+
+        <div class="dialog-content">
+
+            <h2>操作失败</h2>
+
+            <p>
+                错误代码：
+                <span id="ErrorCode"></span>
+            </p>
+
+            <p>
+                错误信息：
+                <span id="ErrorHint"></span>
+            </p>
+
+            <div class="dialog-footer">
+
+                <button
+                    data-dialog-close="ErrorDialog"
+                    type="button"
+                    class="secondary-button"
+                >
+                    关闭
+                </button>
+
+                <button
+                    data-dialog-close="ErrorDialog"
+                    type="button"
+                    class="primary-button"
+                >
+                    确定
+                </button>
+
+            </div>
+
+        </div>
+
+    </dialog>
+
+
+    <!-- 成功窗口 -->
+
+    <dialog id="SuccessDialog" class="app-dialog">
+
+        <div class="dialog-content">
+
+            <h2>操作成功</h2>
+
+            <p id="SuccessHint"></p>
+
+            <div class="dialog-footer">
+
+                <button
+                    data-dialog-close="SuccessDialog"
+                    type="button"
+                    class="primary-button"
+                >
+                    确定
+                </button>
+
+            </div>
+
+        </div>
+
+    </dialog>
+
+
+    <script src="js/common.js"></script>
+    <script src="js/configs.js"></script>
+
+</body>
+
+</html>

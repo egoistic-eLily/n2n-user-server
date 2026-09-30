@@ -1,0 +1,56 @@
+/* Shared motion and same-origin page transitions. */
+@view-transition {
+    navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 220ms;
+    animation-timing-function: cubic-bezier(.2, .7, .2, 1);
+}
+
+::view-transition-old(root) { animation-name: page-leave; }
+::view-transition-new(root) { animation-name: page-enter; }
+
+@keyframes page-enter {
+    from { opacity: .72; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes page-leave {
+    from { opacity: 1; }
+    to { opacity: .82; }
+}
+
+.app-nav a,
+.primary-button,
+.secondary-button,
+.admin-button,
+.pagination button {
+    transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.admin-button:hover,
+.pagination button:not(:disabled):hover { transform: translateY(-1px); }
+
+.overview-card,
+.table-container,
+.login-card {
+    animation: content-arrive 360ms cubic-bezier(.2, .7, .2, 1) both;
+}
+
+@keyframes content-arrive {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}

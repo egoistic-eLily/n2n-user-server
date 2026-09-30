@@ -28,67 +28,61 @@ namespace N2N_USER_SERVER.Core
     public static class Tokens
     {
         public static Dictionary<string, Token> _Tokens = new();
-        //获取TOKEN
+
+        //签发一个新的Token
+        //注-现在是限制单用户使用,如将来改用多用户,请重新设计这个 以及 VerifyToken()里的限制
         public static string ObtainToken(TokenType type, int expireMinutes)
         {
-            //每次获取就清空之前的token
-            //注-现在是限制单用户使用,如将来改用多用户,请重新设计这个 以及 VerifyToken()里的限制
-
+            //签发前清空之前的Token，保证同一时间只有一个有效会话
             _Tokens.Clear();
-            string token = $"token_{GenerateSecurePassword()}";
+            string token = $"token_{GenerateSecureToken()}";
             _Tokens.Add(token, new Token
             {
                 Value = token,
                 Type = type,
                 ExpireTime = DateTime.UtcNow.AddMinutes(expireMinutes)
             });
-            Console.WriteLine($"正在生成token-{token}"); 
+            //不记录Token明文
+            Services.ErrorReporter.Report(Services.LogLevel.Info, $"签发新Token-类型{type}-有效期{expireMinutes}分钟");
             return token;
         }
-        
 
+        //校验Token，失败原因通过error返回
         public static bool VerifyToken(string value, TokenType type, out TokenErrorType error)
         {
-            Console.WriteLine($"正在校验token-{value}");
             if (!_Tokens.TryGetValue(value, out Token? token))
             {
-                Console.WriteLine($"校验token失败-错误");
+                Services.ErrorReporter.Report(Services.LogLevel.Warn, "Token校验失败-不存在或已失效");
                 error = TokenErrorType.TokenError;
                 return false;
             }
-            //if (_Tokens.Count > 1)
-            //{
-            //    Console.WriteLine($"有设备同时在线");
-            //    return false;
-            //}
             if (token.Type != type)
             {
-                Console.WriteLine($"校验token失败-错误");
+                Services.ErrorReporter.Report(Services.LogLevel.Warn, "Token校验失败-类型不匹配");
                 error = TokenErrorType.TokenTypeError;
                 return false;
             }
             if (token.ExpireTime < DateTime.UtcNow)
             {
-                Console.WriteLine($"校验token失败-超时");
+                Services.ErrorReporter.Report(Services.LogLevel.Warn, "Token校验失败-已过期");
                 _Tokens.Remove(value);
                 error = TokenErrorType.TimeOut;
                 return false;
             }
-            Console.WriteLine($"校验token成功");
             error = TokenErrorType.True;
             return true;
         }
 
-        public static void ClearToken() {
-            _Tokens.Clear();
-            return;
-        }
-        private static string GenerateSecurePassword(int length = 16)
+        //清空所有Token
+        public static void ClearToken()
         {
-            // 定义你允许出现在密码里的字符池
-            const string validChars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+            _Tokens.Clear();
+        }
 
-            // 从字符池中安全地随机抽取指定长度的字符组合
+        //生成密码学安全的随机字符串（字符池已去除易混淆的 0/O/1/I/l）
+        private static string GenerateSecureToken(int length = 16)
+        {
+            const string validChars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
             return RandomNumberGenerator.GetString(validChars, length);
         }
 
