@@ -90,3 +90,5 @@ The `wwwroot/` front-end and the database/certificate folders are all resolved r
 ## License
 
 Released under the [MIT License](LICENSE).
+
+> **Note:** this server talks to the N2N supernode/edge binaries **as separate processes only** (no source or library linkage), which is why the MIT license applies here. The N2N software itself (including any modified builds of it used in a deployment) is licensed by its authors under **GPLv3** — redistributing modified n2n binaries carries the GPLv3 source-availability obligation for that project, but it does not affect the license of this repository.
