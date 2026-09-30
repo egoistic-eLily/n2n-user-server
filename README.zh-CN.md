@@ -18,9 +18,9 @@
 
 > **说明：** 也可以使用其他的 N2N 管理工具。本服务器只负责管理用户及其边缘配置，任何接受相同 n2n 边缘参数（超级节点 IP 与端口、社区名、设备名、密码、社区密钥、加密算法）的超级节点 / 管理工具均可与本项目配合使用。
 
-### [N2N_TOOLS_WINUI](https://github.com/egoistic-eLily/N2N_TOOLS_WINUI) —— 桌面 GUI 套壳程序
+### [n2n-winui](https://github.com/egoistic-eLily/n2n-winui) —— 桌面 GUI 套壳程序
 
-[N2N_TOOLS_WINUI](https://github.com/egoistic-eLily/N2N_TOOLS_WINUI) 是**专门为本项目编写的 WinUI GUI 套壳程序**（该仓库暂未公开）。它将本服务器及相关工具打包为一个面向最终用户的桌面应用程序。
+[n2n-winui](https://github.com/egoistic-eLily/n2n-winui) 是**专门为本项目编写的 WinUI GUI 套壳程序**（该仓库暂未公开）。它将本服务器及相关工具打包为一个面向最终用户的桌面应用程序。
 
 ## 功能特性
 

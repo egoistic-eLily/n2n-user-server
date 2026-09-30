@@ -18,9 +18,9 @@ An ASP.NET Core **user / administration server for an N2N VPN deployment**. It e
 
 > **Note:** other N2N management tools may be used as well. This server only manages users and their edge configurations; any supernode / management tool that accepts the same n2n edge parameters (supernode IP & port, community name, device name, password, community key, encryption algorithm) can work with it.
 
-### [N2N_TOOLS_WINUI](https://github.com/egoistic-eLily/N2N_TOOLS_WINUI) — the desktop GUI shell
+### [n2n-winui](https://github.com/egoistic-eLily/n2n-winui) — the desktop GUI shell
 
-[N2N_TOOLS_WINUI](https://github.com/egoistic-eLily/N2N_TOOLS_WINUI) is a **WinUI GUI shell written specifically for this project** (the repository is not yet public). It packages this server and the related tools into a desktop application for end users.
+[n2n-winui](https://github.com/egoistic-eLily/n2n-winui) is a **WinUI GUI shell written specifically for this project** (the repository is not yet public). It packages this server and the related tools into a desktop application for end users.
 
 ## Features
 
