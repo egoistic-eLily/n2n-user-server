@@ -48,7 +48,7 @@
 ### 环境要求
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/)（项目目标框架为 `net10.0-windows`）
-- **一个独立域名** —— 服务器只针对特定域名提供 HTTPS 服务（默认证书签发给 `saenai.asia`，见 `Bootstrap/Initialization.cs`），你需要自己的域名来绑定证书
+- **一个独立域名** —— 服务器只针对特定域名提供 HTTPS 服务。**本项目不提供任何默认域名**：需要你在 `Config/config.json` 的 `url` 字段中配置自己的域名，并将证书绑定到该域名
 - **一份 SSL/TLS 证书，并转换为 PFX 格式** —— 服务器启动时加载的是 PFX 文件；可用如下命令将证书（例如 Let's Encrypt 的 `fullchain.pem` + `privkey.pem`）转换为 PFX：
   ```bash
   openssl pkcs12 -export -out cert.pfx -inkey privkey.pem -in fullchain.pem
@@ -65,11 +65,13 @@ dotnet run
 
 | 字段 | 含义 |
 | --- | --- |
-| `certmode` | `Default` —— 在可执行文件旁寻找 `Cert/saenai.asia.pfx`；`Manual` —— 使用 `pfxpath` 指定的证书 |
-| `pfxpath` / `pfxpassword` | 证书路径 / 密码（`certmode` 为 `Manual` 时生效） |
+| `certmode` | `Default` —— 在可执行文件旁寻找 `Cert/<url>.pfx`，`<url>` 为配置中的 `url` 字段；`Manual` —— 使用 `pfxpath` 指定的证书 |
+| `pfxpath` / `pfxpassword` | 证书路径 / 密码（`certmode` 为 `Manual` 时生效；默认为空） |
 | `port` | HTTPS 监听端口 |
 | `userdbmode` / `userdbpath` | `Default` —— 使用 `Config/userdb.db`；`Manual` —— 使用指定路径 |
 | `admin_username` / `admin_password` | 控制台初始管理员凭据 —— **请务必修改** |
+
+> 本项目**不提供任何默认域名、默认证书或默认证书密码**。域名（`url`）与证书均需自行准备；首次启动时这些字段为空，未配置完成前服务器会拒绝启动（日志中会给出明确提示）。
 
 然后打开 `https://<主机>:<端口>/admin_login`，使用配置好的管理员账号登录。
 

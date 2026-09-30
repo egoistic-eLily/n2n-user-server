@@ -24,7 +24,7 @@ The project is a single ASP.NET Core (`Microsoft.NET.Sdk.Web`) application targe
 
 1. `Program.Main` → `Initialization.Init()`:
    - loads `Config/config.json` from the base directory (created with defaults on first run, enum values as strings);
-   - resolves the TLS certificate (`Cert/saenai.asia.pfx` in `Default` mode, `pfxpath` in `Manual` mode) — a missing certificate is fatal. The server is HTTPS-only and needs a **standalone domain**: the certificate must be a PFX issued for (and bound to) your own domain, converted e.g. with `openssl pkcs12 -export -out cert.pfx -inkey privkey.pem -in fullchain.pem`;
+   - resolves the TLS certificate — in `Default` mode it looks for `Cert/<url>.pfx` where `<url>` comes from the `url` field of the configuration (there is **no default domain**; it must be configured, otherwise startup is fatal); in `Manual` mode it uses `pfxpath`. The server is HTTPS-only and needs a **standalone domain**: the certificate must be a PFX issued for (and bound to) your own domain, converted e.g. with `openssl pkcs12 -export -out cert.pfx -inkey privkey.pem -in fullchain.pem`;
    - resolves the LiteDB path (`Config/userdb.db` in `Default` mode).
 2. `HttpBootstrap.Setup()`:
    - builds Kestrel listening on `config.port` over HTTPS;

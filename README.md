@@ -48,7 +48,7 @@ An ASP.NET Core **user / administration server for an N2N VPN deployment**. It e
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/) (the project targets `net10.0-windows`)
-- **A standalone domain name** — the server only serves HTTPS traffic for a specific domain (the default certificate is issued for `saenai.asia`, see `Bootstrap/Initialization.cs`); you need your own domain to bind the certificate to
+- **A standalone domain name** — the server only serves HTTPS traffic for a specific domain. **No default domain is provided**: set your own domain in the `url` field of `Config/config.json` and bind the certificate to it.
 - **An SSL/TLS certificate in PFX format** — the server loads a PFX file at startup; convert your certificate (e.g. a Let's Encrypt `fullchain.pem` + `privkey.pem`) with:
   ```bash
   openssl pkcs12 -export -out cert.pfx -inkey privkey.pem -in fullchain.pem
@@ -65,11 +65,13 @@ On first start the server creates a default configuration at `<output>/Config/co
 
 | Field | Meaning |
 | --- | --- |
-| `certmode` | `Default` — look for `Cert/saenai.asia.pfx` next to the executable; `Manual` — use `pfxpath` |
-| `pfxpath` / `pfxpassword` | Certificate path / password (used when `certmode` is `Manual`) |
+| `certmode` | `Default` — look for `Cert/<url>.pfx` next to the executable, where `<url>` is the configured `url` field; `Manual` — use `pfxpath` |
+| `pfxpath` / `pfxpassword` | Certificate path / password (used when `certmode` is `Manual`; empty by default) |
 | `port` | HTTPS listening port |
 | `userdbmode` / `userdbpath` | `Default` — use `Config/userdb.db`; `Manual` — use the given path |
 | `admin_username` / `admin_password` | Initial console administrator credentials — **change them** |
+
+> There is **no default domain, certificate, or certificate password**. Both the domain (`url`) and the certificate must be prepared by you; on first start the server writes them empty and refuses to start (with a clear log message) until they are configured.
 
 Then open `https://<host>:<port>/admin_login` and sign in with the configured administrator account.
 

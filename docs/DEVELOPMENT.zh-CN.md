@@ -24,7 +24,7 @@
 
 1. `Program.Main` → `Initialization.Init()`：
    - 从基目录加载 `Config/config.json`（首次运行自动生成默认配置，枚举以字符串形式序列化）；
-   - 解析 TLS 证书（`Default` 模式使用 `Cert/saenai.asia.pfx`，`Manual` 模式使用 `pfxpath`）——证书缺失视为致命错误。服务器只提供 HTTPS 服务，且需要一个**独立域名**：证书必须是为你自己域名签发（并绑定）的 PFX 文件，可用 `openssl pkcs12 -export -out cert.pfx -inkey privkey.pem -in fullchain.pem` 转换；
+   - 解析 TLS 证书 —— `Default` 模式在 `Cert/` 目录下寻找 `Cert/<url>.pfx`，`<url>` 来自配置中的 `url` 字段（**不提供默认域名**，必须自行配置，否则视为致命错误）；`Manual` 模式使用 `pfxpath`。服务器只提供 HTTPS 服务，且需要一个**独立域名**：证书必须是为你自己域名签发（并绑定）的 PFX 文件，可用 `openssl pkcs12 -export -out cert.pfx -inkey privkey.pem -in fullchain.pem` 转换；
    - 解析 LiteDB 路径（`Default` 模式为 `Config/userdb.db`）。
 2. `HttpBootstrap.Setup()`：
    - 构建 Kestrel，监听 `config.port`，走 HTTPS；
