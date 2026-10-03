@@ -14,6 +14,10 @@ namespace N2N_USER_SERVER.Bootstrap
             GetConfig();//获取配置
             InitCert();
             initDB();
+            InitSupernode();
+
+            Core.Supernode.SupernodeOperations.Init();// Supernod初始化
+            Core.Supernode_Parser.Parser.Init(); //CommunityFile初始化(读取)
         }
 
         //初始化Serilog：控制台 + Logs/目录下按天滚动的日志文件
@@ -60,6 +64,74 @@ namespace N2N_USER_SERVER.Bootstrap
             }
             config.pfxpath = pfxpath;
             Services.ErrorReporter.Report(Services.LogLevel.Info, $"证书加载完成-{pfxpath}");
+        }
+
+        private static void InitSupernode()
+        {
+            if (config == null)
+            {
+                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Fatal, "配置未加载，无法初始化Supernode");
+                return;
+            }
+            InitPath();
+            InitCommunityListPath();
+
+            void InitPath(){
+                
+                if (config.supernodemode != supernodeMode.Default)
+                {
+                    if (string.IsNullOrWhiteSpace(config.supernode_path))
+                    {
+                        Services.ErrorReporter.Report(Services.ExceptionType.NoFile, Services.LogLevel.Fatal, "未配置supernode_path");
+                        return;
+                    }
+                    if (!File.Exists(config.supernode_path))
+                    {
+                        Services.ErrorReporter.Report(Services.ExceptionType.NoFile, Services.LogLevel.Fatal, "supernode缺失");
+                        return;
+                    }
+                    Services.ErrorReporter.Report(Services.LogLevel.Info, $"supernode_path配置完成-{config.supernode_path}");
+                    return;
+                }
+                string supernode_path = Path.Combine(AppContext.BaseDirectory,"Core");
+                Directory.CreateDirectory(supernode_path);
+                supernode_path = Path.Combine(supernode_path, "supernode.exe");
+                if (!File.Exists(supernode_path))
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.NoFile, Services.LogLevel.Fatal, $"supernode缺失-请将supernode放置于{supernode_path}");
+                    return;
+                }
+                config.supernode_path = supernode_path;
+            }
+
+            void InitCommunityListPath()
+            {
+                if (config.supernodemode != supernodeMode.Default)
+                {
+                    if (string.IsNullOrWhiteSpace(config.supernode_CommunityListPath))
+                    {
+                        Services.ErrorReporter.Report(Services.ExceptionType.NoFile, Services.LogLevel.Fatal, "未配置CommunityListPath");
+                        return;
+                    }
+                    if (!File.Exists(config.supernode_CommunityListPath))
+                    {
+                        Services.ErrorReporter.Report(Services.ExceptionType.NoFile, Services.LogLevel.Fatal, "CommunityList缺失");
+                        return;
+                    }
+                    Services.ErrorReporter.Report(Services.LogLevel.Info, $"CommunityList配置完成-{config.supernode_CommunityListPath}");
+                    return;
+                }
+                string CommunityListPath = Path.Combine(AppContext.BaseDirectory, "Config");
+                Directory.CreateDirectory(CommunityListPath);
+                CommunityListPath = Path.Combine(CommunityListPath, "community.list");
+                if (!File.Exists(CommunityListPath))
+                {
+                    File.Create(CommunityListPath).Close();
+                    Services.ErrorReporter.Report(Services.ExceptionType.NoFile, Services.LogLevel.Fatal, $"CommunityList缺失-已新建文件,位于{CommunityListPath}");
+                    return;
+                }
+                config.supernode_CommunityListPath = CommunityListPath;
+            }
         }
 
         private static void initDB()
@@ -128,7 +200,12 @@ namespace N2N_USER_SERVER.Bootstrap
                     userdbmode = UserDbMode.Default,
                     userdbpath = "0",
                     admin_username = "admin",
-                    admin_password = "_admin_Yukino**##31_"
+                    admin_password = "_admin_Yukino**##31_",
+                    supernodemode = supernodeMode.Default,
+                    supernode_path = "",
+                    supernode_port = 7654,
+                    supernode_ManagementPort = 5644,
+                    supernode_CommunityListPath = "0"
                 };
                 var options = new JsonSerializerOptions{WriteIndented = true};
                 options.Converters.Add(new JsonStringEnumConverter());

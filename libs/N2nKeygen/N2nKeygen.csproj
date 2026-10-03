@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>N2nKeygen</RootNamespace>
+    <AssemblyName>N2nKeygen</AssemblyName>
+    <!-- 类库：唯一公开 API 为 N2nUserKey.Generate(username, password)，
+         返回 43 字符公钥字符串；核心实现全部为 internal -->
+    <Description>C# port of n2n's tools/n2n-keygen.c key derivation (ntop/n2n 3.1.1), byte-for-byte verified against the official tool</Description>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+</Project>

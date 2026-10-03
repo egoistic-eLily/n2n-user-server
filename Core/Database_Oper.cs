@@ -1,6 +1,8 @@
 ﻿using LiteDB;
 using N2N_USER_SERVER.API;
 using N2N_USER_SERVER.Bootstrap;
+using N2N_USER_SERVER.Core.Supernode_Parser;
+using System.Xml.Linq;
 
 namespace N2N_USER_SERVER.Core
 {
@@ -14,7 +16,7 @@ namespace N2N_USER_SERVER.Core
         public bool enabled { get; set; }
     }
 
-    //用户N2N边缘配置文档模型
+    //用户N2N边缘配置文档模型(弃用)
     public class UserData {
         [BsonId]
         public int user_id { get; set; }
@@ -25,6 +27,25 @@ namespace N2N_USER_SERVER.Core
         public string password { get; set; }
         public string community_key { get; set; }
         public int encrypt_algorithm { get; set; }
+    }
+    public class CommunityConfig
+    {
+        [BsonId]
+        public int id { get; set; }
+        public string name { get; set; }
+        public Supernode_Parser.CommunityType type { get; set; }
+        public string? network { get; set; }
+        public string? communitykey { get; set; }
+    }
+    
+    public class UserConfig
+    {
+        [BsonId]
+        public int user_id { get; set; }
+        public int community_id { get; set; }
+        public string? device_name { get; set; }
+        public string? key { get; set; }
+        public string? password { get; set; }
     }
 
     //提供LiteDB实例的封装，IDisposable-可释放
@@ -37,7 +58,11 @@ namespace N2N_USER_SERVER.Core
         {
             _database = new LiteDatabase(Initialization.config.userdbpath);
             var users = _database.GetCollection<User>("users");
+            var communit = _database.GetCollection<CommunityConfig>("communityconfig");
+            var userconfig = _database.GetCollection<UserConfig>("userconfig");
+            communit.EnsureIndex(x => x.name,true);
             users.EnsureIndex(x => x.username, true);
+            userconfig.EnsureIndex(x => x.device_name);
         }
 
         //users集合
@@ -55,6 +80,23 @@ namespace N2N_USER_SERVER.Core
             get
             {
                 return _database.GetCollection<UserData>("n2n_configs");
+            }
+        }
+
+        //Community集合
+        public ILiteCollection<CommunityConfig> CommunityConfig
+        {
+            get
+            {
+                return _database.GetCollection<CommunityConfig>("communityconfig");
+            }
+        }
+
+        public ILiteCollection<UserConfig> UsersConfig
+        {
+            get
+            {
+                return _database.GetCollection<UserConfig>("userconfig");
             }
         }
 
@@ -145,9 +187,61 @@ namespace N2N_USER_SERVER.Core
         //插入用户
         public static WriteResults AddUser(string username, string password, bool enabled) {
 
-            if (InsertData(lite.Users))
+            var RE = InsertData(lite.Users);
+            if (RE.success)
             {
                 Services.ErrorReporter.Report(Services.LogLevel.Info, $"用户创建成功-{username}");
+                return RE;
+            }
+            else
+            {
+                return RE;
+            }
+
+            WriteResults InsertData(ILiteCollection<User> users) { 
+                var user = new User()
+                {
+                    username = username,
+                    password_hash = BCrypt.Net.BCrypt.HashPassword(password),
+                    enabled = enabled
+                };
+                try
+                { 
+                    if(users.FindOne(x => x.username == username) != null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "AddUser",
+                            success = false,
+                            recode = 401,
+                            hint = $"该用户名已存在 - {username}"
+                        };
+                    }
+
+                    users.Insert(user);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "AddUser",
+                        success = false,
+                        recode = 500,
+                        hint = "插入用户时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "AddUser",
+                        success = false,
+                        recode = 500,
+                        hint = "插入用户时 其他错误"
+                    };
+                }
                 return new WriteResults()
                 {
                     type = "AddUser",
@@ -156,44 +250,152 @@ namespace N2N_USER_SERVER.Core
                     hint = "Operation Successful"
                 };
             }
-            else
-            {
-                return new WriteResults()
-                {
-                    type = "AddUser",
-                    success = false,
-                    recode = 500,
-                    hint = "Database Error"
-                };
-            }
+        }
 
-            bool InsertData(ILiteCollection<User> users) {
-                var user = new User()
-                {
-                    username = username,
-                    password_hash = BCrypt.Net.BCrypt.HashPassword(password),
-                    enabled = enabled
-                };
+
+        //新增社区
+        public static WriteResults AddCommunity(CommunityConfig Community)
+        {
+            //仅null表示该项为空
+            if(string.IsNullOrWhiteSpace(Community.network)) Community.network = null;
+            if(string.IsNullOrWhiteSpace(Community.communitykey)) Community.communitykey = null;
+
+            return InsertCommunity(lite.CommunityConfig);
+
+            WriteResults InsertCommunity(ILiteCollection<CommunityConfig> configs)
+            {
                 try
                 {
-                    users.Insert(user);
+                    //请求的社区的id已存在或请求的社区name已存在
+                    if(configs.FindById(Community.id) != null || configs.FindOne(x => x.name == Community.name) != null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "AddCommunity",
+                            success = false,
+                            recode = 401,
+                            hint = "请求的社区的id已存在或请求的社区name已存在"
+                        };
+                    }
+
+                    var _community = new CommunityConfig
+                    {
+                        name = Community.name,
+                        type = Community.type,
+                        network = Community.network == null ? null : Community.network,
+                        communitykey = Community.communitykey == null ? null : Community.communitykey
+                    };
+
+                    configs.Insert(_community);
                 }
                 catch (LiteException ex)
                 {
                     Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
-                    return false;
+                    return new WriteResults()
+                    {
+                        type = "AddCommunity",
+                        success = false,
+                        recode = 500,
+                        hint = "新增社区时 数据库错误"
+                    };
                 }
                 catch (Exception ex)
                 {
                     Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
-                    return false;
+                    return new WriteResults()
+                    {
+                        type = "AddCommunity",
+                        success = false,
+                        recode = 500,
+                        hint = "新增社区时  其他错误"
+                    };
                 }
+                return new WriteResults()
+                {
+                    type = "AddCommunity",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
 
-                return true;
             }
         }
 
-        //插入用户边缘配置
+        public static WriteResults AddUserConfig(UserConfig Users)
+        {
+
+            return InsertUserConfig(lite.UsersConfig);
+
+            WriteResults InsertUserConfig(ILiteCollection<UserConfig> configs)
+            {
+                try
+                {
+                    //先看它是否在主用户表里存在
+                    if (lite.Users.FindById(Users.user_id) == null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "AddUserConfig",
+                            success = false,
+                            recode = 401,
+                            hint = "请求的用户不属于用户表中"
+                        };
+                    }
+                    //用户所属社区不存在 或 用户id已存在 或 用户设备名已存在
+                    if(lite.CommunityConfig.FindById(Users.community_id) == null || configs.FindById(Users.user_id) != null || configs.FindOne(x => x.device_name == configs.Name) != null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "AddUserConfig",
+                            success = false,
+                            recode = 401,
+                            hint = "请求所属社区不存在或用户id用户/设备名存在问题"
+                        };
+                    }
+
+                    var _config = new UserConfig()
+                    {
+                        user_id = Users.user_id,
+                        community_id = Users.community_id,
+                        device_name = Users.device_name,
+                        key = N2nKeygen.Core.N2nUserKey.Generate(Users.device_name,Users.password),
+                    };
+
+                    configs.Insert(_config);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "AddUserConfig",
+                        success = false,
+                        recode = 500,
+                        hint = "新增用户时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "AddUserConfig",
+                        success = false,
+                        recode = 500,
+                        hint = "新增用户时  其他错误"
+                    };
+                }
+                return new WriteResults()
+                {
+                    type = "AddUserConfig",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
+            }
+        }
+
+        //插入用户边缘配置(弃用)
         public static WriteResults AddUserData(UserData data) {
 
             if (!isUser(data.user_id, lite.Users))
@@ -355,7 +557,107 @@ namespace N2N_USER_SERVER.Core
             }
         }
 
-        //修改用户边缘配置
+        //修改社区-仅允许修改网络和key
+        public static WriteResults ReviseCommunity(CommunityConfig Community)
+        {
+            if(string.IsNullOrWhiteSpace(Community.network)) Community.network = null;
+            if(string.IsNullOrWhiteSpace(Community.communitykey)) Community.communitykey = null;
+
+
+            return Revise(lite.CommunityConfig);
+
+            WriteResults Revise(ILiteCollection<CommunityConfig> configs)
+            {
+                try
+                {
+                    var _community = configs.FindOne(x => x.name == Community.name);
+                    _community.network = Community.network == null ? _community.network : Community.network;
+                    _community.communitykey = Community.network == null ? _community.communitykey : Community.communitykey;
+
+                    configs.Update(_community);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "ReviseCommunity",
+                        success = false,
+                        recode = 500,
+                        hint = "修改社区时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "ReviseCommunity",
+                        success = false,
+                        recode = 500,
+                        hint = "修改社区时  其他错误"
+                    };
+                }
+                return new WriteResults()
+                {
+                    type = "ReviseCommunity",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
+            }
+        }
+
+        public static WriteResults Revise_UserConfig(UserConfig userConfig)
+        {
+
+            return (Revise(lite.UsersConfig));
+
+            WriteResults Revise(ILiteCollection<UserConfig> user)
+            {
+                try
+                {
+                    var _user = user.FindOne(x => x.device_name == userConfig.device_name);
+                    _user.device_name = userConfig.device_name;
+                    _user.key = N2nKeygen.Core.N2nUserKey.Generate(userConfig.device_name, userConfig.password);
+                    _user.community_id = userConfig.community_id;
+
+                    user.Update(_user);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "Revise_UserConfig",
+                        success = false,
+                        recode = 500,
+                        hint = "修改用户数据时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "Revise_UserConfig",
+                        success = false,
+                        recode = 500,
+                        hint = "修改用户数据时  其他错误"
+                    };
+                }
+                return new WriteResults()
+                {
+                    type = "Revise_UserConfig",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
+
+            }
+        }
+
+        //修改用户边缘配置(弃用) 
         public static WriteResults ReviseUserConfig(UserData data)
         {
             //先判断用户是否存在
@@ -439,6 +741,8 @@ namespace N2N_USER_SERVER.Core
                 return true;
             }
         }
+
+        
 
         //删除用户及其边缘配置
         public static WriteResults DeleteUser(int userid)
@@ -547,8 +851,229 @@ namespace N2N_USER_SERVER.Core
                 return true;
             }
         }
+        
+        //删除社区(只允许在无绑定用户的情况下)
 
-        //删除用户边缘配置
+        public static WriteResults Delete_Community(int id)
+        {
+            return Delete(lite.CommunityConfig);
+             
+            WriteResults Delete(ILiteCollection<CommunityConfig> community)
+            {
+                try
+                {
+                    //检测该社区是否有绑定的用户
+                    if(lite.UsersConfig.FindOne(x => x.community_id == id) != null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "Delete_Community",
+                            success = false,
+                            recode = 500,
+                            hint = "该社区仍然有绑定的用户"
+                        }; 
+                    }
+
+                    community.Delete(id);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "Delete_Community",
+                        success = false,
+                        recode = 500,
+                        hint = "删除社区时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "Delete_Community",
+                        success = false,
+                        recode = 500,
+                        hint = "删除社区时  其他错误"
+                    };
+                }
+                return new WriteResults()
+                {
+                    type = "Delete_Community",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
+            }
+        }
+        public static WriteResults Delete_Community(string Community_Name)
+        {
+            return Delete(lite.CommunityConfig);
+
+            WriteResults Delete(ILiteCollection<CommunityConfig> community)
+            {
+                try
+                {
+                    //获取该社区的id
+                    int? id = community.FindOne(x => x.name == Community_Name)?.id;
+
+                    if(id == null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "Delete_Community",
+                            success = false,
+                            recode = 500,
+                            hint = $"没有找到为:{Community_Name} 的社区"
+                        };
+                    }
+
+                    //检测该社区是否有绑定的用户
+                    if (lite.UsersConfig.FindOne(x => x.community_id == id) != null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "Delete_Community",
+                            success = false,
+                            recode = 500,
+                            hint = "该社区仍然有绑定的用户"
+                        };
+                    }
+
+                    community.Delete(id);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "Delete_Community",
+                        success = false,
+                        recode = 500,
+                        hint = "删除社区时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "Delete_Community",
+                        success = false,
+                        recode = 500,
+                        hint = "删除社区时  其他错误"
+                    };
+                }
+                return new WriteResults()
+                {
+                    type = "Delete_Community",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
+            }
+        }
+
+        //删除用户配置
+
+        public static WriteResults DeleteUserData(int id)
+        {
+            return Delete(lite.UsersConfig);
+
+            WriteResults Delete(ILiteCollection<UserConfig> community)
+            {
+                try
+                {
+                    community.Delete(id);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "DeleteUserData",
+                        success = false,
+                        recode = 500,
+                        hint = "删除用户配置时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "DeleteUserData",
+                        success = false,
+                        recode = 500,
+                        hint = "删除用户配置时  其他错误"
+                    };
+                }
+                return new WriteResults()
+                {
+                    type = "DeleteUserData",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
+            }
+        }
+
+        public static WriteResults DeleteUserData(string username)
+        {
+            return Delete(lite.UsersConfig);
+
+            WriteResults Delete(ILiteCollection<UserConfig> community)
+            {
+                try
+                {
+                    int? id = lite.UsersConfig.FindOne(x => x.device_name == username)?.user_id;
+                    if (id == null)
+                    {
+                        return new WriteResults()
+                        {
+                            type = "Delete_Community",
+                            success = false,
+                            recode = 500,
+                            hint = $"没有找到为:{username} 的用户 "
+                        };
+                    }
+                    community.Delete(id);
+                }
+                catch (LiteException ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"插入用户失败-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "DeleteUserData",
+                        success = false,
+                        recode = 500,
+                        hint = "删除用户配置时 数据库错误"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"插入用户失败-未知错误-{ex.Message}");
+                    return new WriteResults()
+                    {
+                        type = "DeleteUserData",
+                        success = false,
+                        recode = 500,
+                        hint = "删除用户配置时  其他错误"
+                    };
+                }
+                return new WriteResults()
+                {
+                    type = "DeleteUserData",
+                    success = true,
+                    recode = 200,
+                    hint = "Operation Successful"
+                };
+            }
+        }
+
+
+        //删除用户边缘配置(弃用)
         public static WriteResults Delete_UserData(int id)
         {
             //先判断配置是否存在
@@ -642,7 +1167,151 @@ namespace N2N_USER_SERVER.Core
             }
         }
 
-        //获取所有用户边缘配置
+        //获取所有社区
+        public static WriteResults GetCommunityAll(out List<CommunityConfig> communityConfigs)
+        {
+            try
+            {
+                communityConfigs = lite.CommunityConfig.FindAll().ToList();
+                return new WriteResults()
+                {
+                    type = "GetCommunityAll",
+                    success = true,
+                    recode = 200,
+                    hint = "OK"
+                };
+            }
+            catch (LiteException ex)
+            {
+                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询社区失败-{ex.Message}");
+                communityConfigs = null;
+                return new WriteResults()
+                {
+                    type = "GetCommunityAll",
+                    success = false,
+                    recode = 500,
+                    hint = "查询社区时 数据库错误 "
+                };
+            }
+            catch (Exception ex)
+            {
+                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询社区失败-未知错误-{ex.Message}");
+                communityConfigs = null;
+                return new WriteResults()
+                {
+                    type = "GetCommunityAll",
+                    success = false,
+                    recode = 500,
+                    hint = "查询社区时 未知错误"
+                };
+            }
+
+        }
+
+        public static WriteResults Get_UserConfigAll(out List<UserConfig> UserConfig)
+        {
+            try
+            {
+                UserConfig = lite.UsersConfig.FindAll().ToList();
+                return new WriteResults()
+                {
+                    type = "Get_UserConfigAll",
+                    success = true,
+                    recode = 200,
+                    hint = "OK"
+                };
+            }
+            catch (LiteException ex)
+            {
+                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"查询用户数据失败-{ex.Message}");
+                UserConfig = null;
+                return new WriteResults()
+                {
+                    type = "GetCommunityAll",
+                    success = false,
+                    recode = 500,
+                    hint = "查询用户配置时 数据库错误"
+                };
+            }
+            catch (Exception ex)
+            {
+                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"查询用户数据失败-未知错误-{ex.Message}");
+                UserConfig = null;
+                return new WriteResults()
+                {
+                    type = "GetCommunityAll",
+                    success = false,
+                    recode = 500 ,
+                    hint = "询用户配置时 未知错误"
+                };
+            }
+        }
+
+        public static WriteResults SynchronousListFile()
+        {
+            var CommunityAll = lite.CommunityConfig.FindAll().ToList();
+            var CommunityFile = new Supernode_Parser.CommunityFile();
+            var CommunityList = new List<Supernode_Parser.Community>();
+            var users = new List<Supernode_Parser.User>();
+            try
+            {
+                foreach (var community in CommunityAll)
+                {
+                    //每次循环重置
+                    users = new List<Supernode_Parser.User>();
+                    //查询每个绑定至该社区的User
+                    foreach (var user in lite.UsersConfig.Find(x => x.community_id == community.id))
+                    {
+                        users.Add(new Supernode_Parser.User() { 
+                            Id = user.user_id,
+                            username = user.device_name,
+                            key = user.key
+                        });
+                    }
+                    CommunityList.Add(new Supernode_Parser.Community { 
+                        Name = community.name,
+                        Type = community.type,
+                        Network = community.network,
+                        Users = users
+                    });
+                }
+
+                CommunityFile.Communitys = CommunityList;
+
+                return new WriteResults()
+                {
+                    type = "SynchronousListFile",
+                    success = true,
+                    recode = 200,
+                    hint = "OK"
+                };
+            }
+            catch (LiteException ex)
+            {
+                Services.ErrorReporter.Report(Services.ExceptionType.DataBase, Services.LogLevel.Error, $"将数据库同步至LIST文件失败-{ex.Message}");
+                return new WriteResults()
+                {
+                    type = "SynchronousListFile",
+                    success = false,
+                    recode = 500,
+                    hint = "将数据库同步至LIST文件失败 数据库错误"
+                };
+            }
+            catch (Exception ex)
+            {
+                Services.ErrorReporter.Report(Services.ExceptionType.Unknown, Services.LogLevel.Error, $"将数据库同步至LIST文件失败-未知错误-{ex.Message}");
+                return new WriteResults()
+                {
+                    type = "GetCommunityAll",
+                    success = false,
+                    recode = 500,
+                    hint = "将数据库同步至LIST文件失败 未知错误"
+                };
+            }
+
+        }
+
+        //获取所有用户边缘配置（弃用）
         public static List<UserData> GetUserConfigAll()
         {
             try

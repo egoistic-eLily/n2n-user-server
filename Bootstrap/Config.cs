@@ -11,6 +11,12 @@
         Manual
     }
 
+    public enum supernodeMode
+    {
+        Default,
+        Manual
+    }
+
     public class Config
     {
         public CertMode certmode {  get; set; }
@@ -22,5 +28,10 @@
         public string userdbpath { get; set; }
         public string admin_username { get; set; }
         public string admin_password { get; set; }
+        public supernodeMode supernodemode { get; set; }
+        public string supernode_path { get; set; }
+        public int supernode_port { get; set; }
+        public int supernode_ManagementPort { get; set; }
+        public string supernode_CommunityListPath { get; set; }
     }
 }

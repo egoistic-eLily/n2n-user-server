@@ -6,4 +6,6 @@
   <Project Path="N2N_USER_SERVER.csproj">
     <Platform Solution="*|x64" Project="x64" />
   </Project>
+  <Project Path="libs/N2nKeygen/N2nKeygen.csproj" />
+  <Project Path="libs/N2nSupernode/N2nSupernode.csproj" />
 </Solution>

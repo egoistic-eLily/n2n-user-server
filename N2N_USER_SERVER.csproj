@@ -13,6 +13,14 @@
     <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- libs/ 下的类库以独立项目/DLL 形式引用，排除其源码以免被主项目重复编译 -->
+  <ItemGroup>
+    <Compile Remove="libs\**" />
+    <Content Remove="libs\**" />
+    <EmbeddedResource Remove="libs\**" />
+    <None Remove="libs\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="Dapper" Version="2.1.79" />
@@ -22,6 +30,15 @@
     <PackageReference Include="Serilog" Version="4.4.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="N2nKeygen">
+      <HintPath>libs\N2nKeygen.dll</HintPath>
+    </Reference>
+    <Reference Include="N2nSupernode">
+      <HintPath>libs\N2nSupernode.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

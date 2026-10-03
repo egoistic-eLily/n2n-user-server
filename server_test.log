@@ -1,0 +1,12 @@
+[23:56:31 INF] 配置文件加载完成
+[23:56:31 INF] HTTPS 未启用(certmode=None)，将以 HTTP 明文监听
+[23:56:31 INF] 数据库路径-D:\myfile\Ceshi\N2N_USER_SERVER\bin\Debug\net10.0-windows\Config\userdb.db
+[23:56:31 INF] 路由注册完成-HTTPS监听端口8197
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://[::]:8197
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\myfile\Ceshi\N2N_USER_SERVER

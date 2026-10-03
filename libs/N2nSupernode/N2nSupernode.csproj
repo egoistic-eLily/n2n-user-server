@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>N2nSupernode</RootNamespace>
+    <AssemblyName>N2nSupernode</AssemblyName>
+    <Description>Process host and UDP management client for the n2n supernode (cross-platform: Windows/Linux)</Description>
+  </PropertyGroup>
+
+</Project>

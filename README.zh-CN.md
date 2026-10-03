@@ -39,6 +39,8 @@
 ├── Core/                # 业务逻辑：Token 管理、数据库操作
 ├── Services/            # 横切关注点：日志 / 错误上报
 ├── wwwroot/             # 内置 Web 管理控制台（HTML/CSS/JS，无需构建）
+├── libs/                # 本地类库：N2nKeygen（n2n 用户公钥派生，见 libs/README.md）
+├── thirdparty/          # 第三方源码（n2n，git 子模块，GPLv3 —— 见 thirdparty/README.md）
 ├── docs/                # 文档（开发手册、API 参考）
 └── Properties/          # 启动设置与发布配置
 ```
@@ -91,6 +93,14 @@ dotnet publish -c Release
 
 ## 许可证
 
-本项目基于 [MIT License](LICENSE) 开源。
+本仓库采用分层许可：
+
+- **服务器代码**（`libs/N2nKeygen/` 之外的全部内容）：[MIT License](LICENSE)。
+- **`libs/N2nKeygen/`**：**GPLv3**（见其 [LICENSE](libs/N2nKeygen/LICENSE)）——
+  它是 n2n 的 GPLv3 密钥派生源码的跨语言移植，移植版本属于衍生作品。
+- **`thirdparty/n2n`**：上游 n2n 本体，GPLv3，以 git 子模块形式引入。
+
+由此产生的义务：服务器二进制静态链接了 `N2nKeygen.dll`，**分发服务器时**
+需按 GPLv3 提供对应源码。仅自部署、不分发则不触发该义务。
 
 > **说明：** 本服务器与 N2N 超级节点 / 边缘节点程序之间**仅为进程级依赖**（不涉及源码或库链接），因此本项目可使用 MIT 协议。N2N 软件本身（包括部署中使用的任何二次编译版本）由其作者以 **GPLv3** 授权——再分发修改版 n2n 二进制时，需按 GPLv3 公开该项目的源码，但这不影响本仓库的 MIT 协议。

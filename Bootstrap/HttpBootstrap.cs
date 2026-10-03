@@ -54,18 +54,26 @@ namespace N2N_USER_SERVER.Bootstrap
             app.MapGet("/configs", (Func<HttpContext, Task<IResult>>)API.LoginApi.Admin_Config_Tools);
             //获取用户数据api
             app.MapPost("/api/getuserdata", (Func<HttpContext, Task<IResult>>)API.LoginApi.Re_User_Data);
+            //获取社区数据api
+            app.MapPost("/api/get_communitydata", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.Re_Community_Data);
             //获取用户配置api
-            app.MapPost("/api/getusersconfig", (Func<HttpContext, Task<IResult>>)API.LoginApi.Re_User_Config);
+            app.MapPost("/api/getusersconfig", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.Re_User_Config);
             //创建用户api
             app.MapPost("/api/create_user", (Func<HttpContext, Task<IResult>>)API.LoginApi.Create_User);
+            //创建社区api
+            app.MapPost("/api/create_community", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.ADD_Community);
             //创建用户配置api
-            app.MapPost("/api/create_config", (Func<HttpContext, Task<IResult>>)API.LoginApi.Create_UserConfig);
+            app.MapPost("/api/create_config", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.AddUserConfig);
             //删除用户api
             app.MapPost("/api/delete_user", (Func<HttpContext, Task<IResult>>)API.LoginApi.Delete_User);
-            //修改用户数据api
-            app.MapPost("/api/revise_user", (Func<HttpContext, Task<IResult>>)API.LoginApi.Revise_User);
+            //删除社区api
+            app.MapPost("/api/delete_community", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.Delete_Community);
             //修改用户配置api
-            app.MapPost("/api/revise_config", (Func<HttpContext, Task<IResult>>)API.LoginApi.Revise_UserConfig);
+            app.MapPost("/api/revise_user", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.DeleteUserData);
+            //修改社区api
+            app.MapPost("/api/revise_community", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.ReviseCommunity);
+            //修改用户配置api
+            app.MapPost("/api/revise_config", (Func<HttpContext, Task<IResult>>)API.Supernode.SupernodeAPI.Revise_UserConfig);
             //退出登录api
             app.MapPost("/api/logout", (Func<HttpContext, Task<IResult>>)API.LoginApi.LogOut);
         }

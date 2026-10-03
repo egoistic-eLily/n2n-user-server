@@ -229,32 +229,6 @@ namespace N2N_USER_SERVER.API
 
             return Results.Json(redata,statusCode:200);
         }
-
-        public static async Task<IResult> Re_User_Config(HttpContext context)
-        {
-            //先校验token
-
-            Request? request = await context.Request.ReadFromJsonAsync<Request>();
-            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/getusersconfig");
-
-            var RE = TokenVerify(request);
-
-            if (RE != null) return RE;
-
-            //查询
-            var UsersConfigList = Core.DatabaseOper.GetUserConfigAll();
-
-            var redata = new Re_UserConfig()
-            {
-                success = true,
-                recode = 200,
-                hint = "OK",
-                usersconfig = UsersConfigList
-            };
-
-            return Results.Json(redata, statusCode: 200);
-        }
-
         public static async Task<IResult> Create_User(HttpContext context)
         {
             //先校验token
@@ -272,17 +246,6 @@ namespace N2N_USER_SERVER.API
 
             int id = Core.DatabaseOper.lite.Users.FindOne(x => x.username == request.username).id;
 
-            _ = Core.DatabaseOper.AddUserData(new UserData { 
-                user_id = id,
-                supernode_ip  = "",
-                supernode_port = 0,
-                community_name = "",
-                device_name = "",
-                password = "",
-                community_key = "",
-                encrypt_algorithm = 4
-            });
-
             if (!DBRE.success)
             {
                 return Results.Json(new
@@ -303,149 +266,6 @@ namespace N2N_USER_SERVER.API
             statusCode: 200);
         }
 
-        public static async Task<IResult> Create_UserConfig(HttpContext context)
-        {
-            //先校验token
-
-            CreateUserConfigRequest? request = await context.Request.ReadFromJsonAsync<CreateUserConfigRequest>();
-            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/create_config");
-
-            var RE = TokenVerify(request);
-
-            if (RE != null) return RE;
-
-            //创建
-
-            var DBRE = Core.DatabaseOper.AddUserData(new UserData
-            {
-                user_id = request.user_id,
-                supernode_ip = request.supernode_ip,
-                supernode_port = request.supernode_port,
-                community_name = request.community_name,
-                device_name =request.device_name,
-                password = request.password,
-                community_key = request.community_key,
-                encrypt_algorithm = request.encrypt_algorithm
-            });
-
-            if (!DBRE.success)
-            {
-                return Results.Json(new
-                {
-                    success = false,
-                    recode = DBRE.recode,
-                    hint = DBRE.hint
-                },
-                statusCode: 500);
-            }
-
-            return Results.Json(new
-            {
-                success = true,
-                recode = DBRE.recode,
-                hint = DBRE.hint
-            },
-            statusCode: 200);
-        }
-
-        public static async Task<IResult> Revise_User(HttpContext context)
-        {
-            //先校验token
-
-            UserRequest? request = await context.Request.ReadFromJsonAsync<UserRequest>();
-            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/revise_user-id{request?.id}");
-
-            var RE = TokenVerify(request);
-
-            if (RE != null) return RE;
-
-            //修改
-
-            string password = "";
-            //"null"表示不需要更改密码
-            if (request.password_hash == "null")
-            {
-                //这里将约定的"null"传入函数，函数自会处理
-                password = "null";
-            }
-            else
-            {
-                //发送的是密码明文，这里转为HASH
-                password = BCrypt.Net.BCrypt.HashPassword(request.password_hash);
-            }
-
-            
-
-            var DBRE = Core.DatabaseOper.ReviseUser(new User { 
-                id = request.id,
-                username = request.username,
-                password_hash = password,
-                enabled = request.enabled
-            });
-
-            if (!DBRE.success)
-            {
-                return Results.Json(new
-                {
-                    success = false,
-                    recode = DBRE.recode,
-                    hint = DBRE.hint
-                },
-                statusCode: 500);
-            }
-
-            return Results.Json(new
-            {
-                success = true,
-                recode = DBRE.recode,
-                hint = DBRE.hint
-            },
-            statusCode: 200);
-        }
-
-        public static async Task<IResult> Revise_UserConfig(HttpContext context)
-        {
-            //先校验token
-
-            CreateUserConfigRequest? request = await context.Request.ReadFromJsonAsync<CreateUserConfigRequest>();
-            Services.ErrorReporter.Report(Services.LogLevel.Info, $"接口调用-/api/revise_config");
-
-            var RE = TokenVerify(request);
-
-            if (RE != null) return RE;
-
-            //修改
-            var DBRE = Core.DatabaseOper.ReviseUserConfig(new UserData() { 
-                user_id = request.user_id,
-                supernode_ip = request.supernode_ip,
-                supernode_port = request.supernode_port,
-                community_name = request.community_name,
-                device_name = request.device_name,
-                password = request.password,
-                community_key = request.community_key,
-                encrypt_algorithm = request.encrypt_algorithm,
-            });
-
-            if (!DBRE.success)
-            {
-                return Results.Json(new
-                {
-                    success = false,
-                    recode = DBRE.recode,
-                    hint = DBRE.hint
-                },
-                statusCode: 500);
-            }
-
-            return Results.Json(new
-            {
-                success = true,
-                recode = DBRE.recode,
-                hint = DBRE.hint
-            },
-            statusCode: 200);
-
-        }
 
         public static async Task<IResult> Delete_User(HttpContext context)
         {
@@ -461,7 +281,7 @@ namespace N2N_USER_SERVER.API
             //删除
 
             var DBRE = Core.DatabaseOper.DeleteUser(request.id);
-            _ = Core.DatabaseOper.Delete_UserData(request.id);
+            _ = Core.DatabaseOper.DeleteUserData(request.id);
 
             if (!DBRE.success)
             {
@@ -508,7 +328,7 @@ namespace N2N_USER_SERVER.API
 
         #region 帮助函数
 
-        private static IResult? TokenVerify(Request? request)
+        public static IResult? TokenVerify(Request? request)
         {
             if (request == null)
             {
@@ -557,7 +377,7 @@ namespace N2N_USER_SERVER.API
             return null;
         }
 
-        private static IResult? TokenVerify(CreateUserRequest? request)
+        public static IResult? TokenVerify(CreateUserRequest? request)
         {
             if (request == null)
             {
@@ -606,7 +426,7 @@ namespace N2N_USER_SERVER.API
             return null;
         }
 
-        private static IResult? TokenVerify(UserRequest? request)
+        public static IResult? TokenVerify(UserRequest? request)
         {
             if (request == null)
             {
@@ -655,7 +475,7 @@ namespace N2N_USER_SERVER.API
             return null;
         }
 
-        private static IResult? TokenVerify(CreateUserConfigRequest? request)
+        public static IResult? TokenVerify(CreateUserConfigRequest? request)
         {
             if (request == null)
             {
@@ -665,6 +485,47 @@ namespace N2N_USER_SERVER.API
             //先校验token
 
             string? token = request.token;
+
+            TokenErrorType error;
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return Results.Json(new Re_UserData()
+                {
+                    success = false,
+                    recode = 401,
+                    hint = "token error"
+                },
+                statusCode: 401);
+            }
+
+            if (!Tokens.VerifyToken(token, TokenType.Admin, out error))
+            {
+                if (error == TokenErrorType.TimeOut)
+                {
+                    return Results.Json(new Re_UserData()
+                    {
+                        success = false,
+                        recode = 2000,
+                        hint = "TimeOut"
+                    },
+                    statusCode: 401);
+                }
+
+                return Results.Json(new Re_UserData()
+                {
+                    success = false,
+                    recode = 401,
+                    hint = "token error"
+                },
+                statusCode: 401);
+            }
+
+            return null;
+        }
+        public static IResult? TokenVerify(string? token)
+        {
+            //先校验token
 
             TokenErrorType error;
 

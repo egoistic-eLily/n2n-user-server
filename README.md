@@ -39,6 +39,8 @@ An ASP.NET Core **user / administration server for an N2N VPN deployment**. It e
 ├── Core/                # Business logic: token management, database operations
 ├── Services/            # Cross-cutting concerns: logging / error reporting
 ├── wwwroot/             # Built-in web admin console (HTML/CSS/JS, no build step)
+├── libs/                # Local libraries: N2nKeygen (n2n user public key derivation, see libs/README.md)
+├── thirdparty/          # Third-party sources (n2n, git submodule, GPLv3 — see thirdparty/README.md)
 ├── docs/                # Documentation (development manual, API reference)
 └── Properties/          # Launch settings & publish profiles
 ```
@@ -91,6 +93,17 @@ The `wwwroot/` front-end and the database/certificate folders are all resolved r
 
 ## License
 
-Released under the [MIT License](LICENSE).
+This repository uses layered licensing:
+
+- **Server code** (everything except `libs/N2nKeygen/`): [MIT License](LICENSE).
+- **`libs/N2nKeygen/`**: **GPLv3** (see its [LICENSE](libs/N2nKeygen/LICENSE)) — it is a
+  cross-language port of n2n's GPLv3 key derivation sources, and ports of GPL code
+  are derivative works.
+- **`thirdparty/n2n`**: upstream n2n, GPLv3, tracked as a git submodule.
+
+Consequence: the server binary statically links `N2nKeygen.dll`, so **if you
+distribute the server**, the combined binary must be conveyed under GPLv3
+(with corresponding source availability). Self-hosting without distribution
+imposes no obligations.
 
 > **Note:** this server talks to the N2N supernode/edge binaries **as separate processes only** (no source or library linkage), which is why the MIT license applies here. The N2N software itself (including any modified builds of it used in a deployment) is licensed by its authors under **GPLv3** — redistributing modified n2n binaries carries the GPLv3 source-availability obligation for that project, but it does not affect the license of this repository.
